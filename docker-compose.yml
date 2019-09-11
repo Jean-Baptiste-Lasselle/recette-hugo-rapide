@@ -1,0 +1,55 @@
+version: '3.4'
+
+services:
+
+  # conteneur dans lequel est utilisé l'outil HUGO e ligne de commandes. https://gohugo.com
+  hugofy:
+    image: 'github-pages.omega.io/hugo:0.0.7'
+    # 'jean-baptiste-lasselle.github.io:5004/github-pages.omega.io/hugo:0.0.7'
+    build: 
+      context: docker/hugo/
+      args:
+      # PEGASUS SPECIFICS
+        - PEGASUS_OPERATOR_USER_ID=$PEGASUS_OPERATOR_USER_ID
+        - PEGASUS_OPERATOR_USER_NAME=$PEGASUS_OPERATOR_USER_NAME
+        - PEGASUS_OPERATOR_GROUP_ID=$PEGASUS_OPERATOR_GROUP_ID
+        - PEGASUS_OPERATOR_GROUP_NAME=$PEGASUS_OPERATOR_GROUP_NAME
+      # HUGO SPECIFICS
+        - HUGO_DESIRED_VERSION=$HUGO_DESIRED_VERSION
+        - HUGO_INSTALLATION_PATH=$HUGO_INSTALLATION_PATH
+        - HUGO_WORKSPACE_INSIDE_CONTAINER=/usr/share/hugo/workspace/
+    # restart: always
+    tty: true
+    ports:
+      - "1323-1343:1313"
+    labels:
+      - "traefik.frontend.rule=Host:hugo.omega.io"
+    environment:
+    # PEGASUS SPECIFIFCS 
+      - PEGASUS_OPERATOR_USER_NAME=$PEGASUS_OPERATOR_USER_NAME
+      - PEGASUS_OPERATOR_GROUP_NAME=$PEGASUS_OPERATOR_GROUP_NAME
+    # HUGO SPECIFICS
+      - HUGO_DESIRED_VERSION=$HUGO_DESIRED_VERSION
+    volumes:
+      - ./hugo/workspace/:/usr/share/hugo/workspace/:rw
+    networks:
+      - reseau_devops
+  reverse-proxy:
+    image: traefik # The official Traefik docker image
+    command: --api --docker # Enables the web UI and tells Traefik to listen to docker
+    ports:
+      - "80:80"     # The HTTP port
+      - "8080:8080" # The Web UI (enabled by --api)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # So that Traefik can listen to the Docker events
+    depends_on:
+      - hugofy
+      # - pwa_builder
+    networks:
+      # - reseau_devops
+      reseau_devops:
+        aliases:
+          - hugo.omega.io
+networks:
+  reseau_devops:
+    driver: bridge
